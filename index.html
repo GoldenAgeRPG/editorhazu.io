@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JKGA Editor - Hazu</title>
+    <link href="https://goldenagerpg.github.io/templates.io/nan-hazu-template3.css" rel="stylesheet" type="text/css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        /* --- TEMA DARK/ROXO --- */
+        :root { --bg: #0f0f0f; --panel: #1a1a1a; --main: #8e44ad; --text: #ecf0f1; --border: #333; }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; user-select: none; }
+
+        /* HEADER */
+        header { background: #000; padding: 10px 20px; border-bottom: 2px solid var(--main); display: flex; justify-content: space-between; align-items: center; z-index: 20; }
+        h1 { margin: 0; font-size: 1.1rem; color: var(--main); letter-spacing: 1px; }
+        button { background: var(--panel); border: 1px solid var(--main); color: var(--main); padding: 8px 12px; cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.75rem; transition:0.2s; }
+        button:hover, button.primary { background: var(--main); color: #fff; }
+
+        /* LAYOUT */
+        .main-container { display: flex; flex: 1; overflow: hidden; }
+        .sidebar { width: 380px; background: var(--panel); border-right: 1px solid var(--border); overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; z-index: 15; flex-shrink: 0; }
+        
+        /* INPUTS */
+        label { font-size: 0.75rem; color: #95a5a6; font-weight: 700; text-transform: uppercase; margin-bottom: 3px; display: block; }
+        input, textarea { background: #252525; border: 1px solid var(--border); color: #fff; padding: 8px; border-radius: 4px; width: 100%; box-sizing: border-box; font-family: inherit; }
+        input:focus, textarea:focus { outline: none; border-color: var(--main); }
+        .slider-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .image-item { background: #222; border: 1px solid var(--border); padding: 10px; border-radius: 4px; position: relative; margin-bottom: 10px; }
+        
+        /* PREVIEW AREA */
+        .preview-area { 
+            flex: 1; background: #050505; 
+            background-image: radial-gradient(#222 1px, transparent 1px); background-size: 20px 20px;
+            padding: 40px; overflow: auto; 
+            position: relative; display: flex; justify-content: center; align-items: flex-start;
+        }
+
+        /* --- VISUAL DE SELEÇÃO E REDIMENSIONAMENTO --- */
+        
+        /* Container das imagens no editor (para permitir seleção) */
+        .editor-image-wrapper {
+            position: absolute;
+            z-index: 100;
+            cursor: grab;
+            /* Impede seleção de texto nativa */
+            user-select: none; 
+        }
+        
+        /* A imagem real dentro do wrapper */
+        .editor-image-wrapper img {
+            width: 100%; 
+            height: 100%;
+            display: block;
+            pointer-events: none; /* O mouse interage com o wrapper, não com a img */
+            mix-blend-mode: multiply; /* Efeito de tinta */
+            filter: grayscale(100%) contrast(1.2) brightness(0.95);
+        }
+
+        /* Estado Selecionado (Borda Roxa) */
+        .editor-image-wrapper.selected {
+            outline: 2px dashed var(--main);
+            z-index: 110;
+        }
+
+        /* Alça de Redimensionamento (Canto Inferior Direito) */
+        .resize-handle {
+            width: 12px; height: 12px;
+            background: var(--main);
+            border: 2px solid #fff;
+            position: absolute;
+            bottom: -6px; right: -6px;
+            cursor: nwse-resize; /* Cursor diagonal */
+            display: none; /* Escondido por padrão */
+            z-index: 120;
+            border-radius: 50%;
+        }
+
+        .editor-image-wrapper.selected .resize-handle {
+            display: block; /* Mostra apenas quando selecionado */
+        }
+
+        /* Classes auxiliares */
+        .editor-image-wrapper.is-dragging { cursor: grabbing; opacity: 0.7; }
+        
+        /* Bloqueia cliques no texto para focar nas imagens */
+        .preview-area .book-container > div:not(.editor-image-wrapper) {
+            pointer-events: none;
+        }
+
+        /* UTILS */
+        .toast { position: fixed; bottom: 20px; right: 20px; background: var(--main); color: white; padding: 10px 20px; border-radius: 4px; opacity: 0; pointer-events: none; transition: 0.3s; z-index: 9999; }
+        .toast.show { opacity: 1; transform: translateY(-10px); }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 2000; display: none; justify-content: center; align-items: center; }
+        .modal { background: var(--panel); width: 90%; max-width: 600px; padding: 20px; border-radius: 6px; border: 1px solid var(--main); }
+
+        /* Estilo do Spoiler simulado */
+        .spoiler-preview-box { margin: 5px 0; border: 1px solid #5e4b35; background: rgba(0,0,0,0.1); }
+        .spoiler-preview-header { padding: 5px 10px; border-bottom: 1px dashed #5e4b35; font-weight: bold; color: #5e4b35; }
+        .spoiler-preview-content { padding: 10px; color: #333; }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1><i class="fas fa-pen-nib"></i> JKGA Editor - Hazu </h1>
+        <div style="display:flex; gap:10px;">
+            <button onclick="openImport()">Importar</button>
+            <button onclick="clearData()">Limpar</button>
+            <button class="primary" onclick="copyCode()">Copiar HTML</button>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <div class="sidebar">
+            <div style="background:#222; padding:10px; border-radius:4px; font-size:0.8rem; color:#aaa; margin-bottom:10px;">
+                <i class="fas fa-info-circle"></i> <b>Dica:</b> Clique na imagem para selecionar. Arraste para mover. Puxe a bolinha roxa no canto para redimensionar.
+            </div>
+
+            <div>
+                <label>Título / Subtítulo</label>
+                <input type="text" id="inp-title" oninput="render()" placeholder="Título">
+                <input type="text" id="inp-subtitle" oninput="render()" placeholder="Subtítulo" style="margin-top:5px;">
+            </div>
+            
+            <div class="slider-group">
+                <div><label>HP</label><input type="number" id="hp-c" oninput="render()"><input type="number" id="hp-m" oninput="render()"></div>
+                <div><label>EA</label><input type="number" id="ea-c" oninput="render()"><input type="number" id="ea-m" oninput="render()"></div>
+            </div>
+            <div class="slider-group">
+                <div><label>SAN</label><input type="number" id="san-c" oninput="render()"><input type="number" id="san-m" oninput="render()"></div>
+                <div><label>Gengar</label><input type="number" id="gen-c" oninput="render()"><input type="number" id="gen-m" oninput="render()"></div>
+            </div>
+
+            <div>
+                <label>Conteúdo</label>
+                <textarea id="inp-content" oninput="render()" style="height:150px;"></textarea>
+            </div>
+            <div>
+                <label>Considerações</label>
+                <textarea id="inp-extras" oninput="render()" style="height:100px;"></textarea>
+            </div>
+
+            <div style="border-top:1px solid #333; padding-top:15px;">
+                <label style="color:var(--main); font-size:0.9rem;">Imagens</label>
+                <div id="img-list"></div>
+                <button onclick="addImg()" style="width:100%; margin-top:10px;">+ Nova Imagem</button>
+            </div>
+        </div>
+
+        <div class="preview-area" id="preview-wrapper">
+            <div id="preview-container"></div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast">Sucesso!</div>
+    <div id="import-modal" class="modal-overlay">
+        <div class="modal">
+            <h3>Importar Código</h3>
+            <textarea id="import-area" style="width:100%; height:200px; margin-bottom:15px; background:#111; color:#fff; border:1px solid #444; font-family:monospace; font-size:0.8rem;"></textarea>
+            <div style="text-align:right;">
+                <button onclick="closeImport()">Cancelar</button>
+                <button class="primary" onclick="doImport()">Carregar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const CSS_URL = "https://goldenagerpg.github.io/templates.io/nan-hazu-template3.css";
+        
+        // ESTADO INICIAL
+        let state = {
+            title: "O Banquete", subtitle: "Prato Principal",
+            hp: [1200, 1200], ea: [3000, 3000], san: [95, 100], gengar: [800, 800],
+            content: "O óleo na panela velha estalava como pequenos ossos se partindo...",
+            extras: '[spoiler="Notas do Chef"]<b>Cozimento:</b> Lento[/spoiler]',
+            images: [
+                { url: 'https://i.pinimg.com/originals/e1/a2/24/e1a224e377169ac212240950700e8850.png', top: 160, left: 400, width: 220, rotate: 2, opacity: 0.7 },
+                { url: 'https://i.pinimg.com/1200x/4b/4c/60/4b4c60057c19ae29272a125ec9afdb4d.jpg', top: 700, left: 15, width: 130, rotate: -10, opacity: 0.8 }
+            ]
+        };
+
+        // --- SISTEMA CENTRAL ---
+
+        function init() {
+            const s = localStorage.getItem('hazuv6');
+            if(s) try { state = JSON.parse(s); } catch(e){}
+            updateInputs(); 
+            render(); 
+            // Inicia listeners
+            setupInteractions();
+        }
+
+        function updateInputs() {
+            document.getElementById('inp-title').value = state.title;
+            document.getElementById('inp-subtitle').value = state.subtitle;
+            document.getElementById('hp-c').value = state.hp[0]; document.getElementById('hp-m').value = state.hp[1];
+            document.getElementById('ea-c').value = state.ea[0]; document.getElementById('ea-m').value = state.ea[1];
+            document.getElementById('san-c').value = state.san[0]; document.getElementById('san-m').value = state.san[1];
+            document.getElementById('gen-c').value = state.gengar[0]; document.getElementById('gen-m').value = state.gengar[1];
+            document.getElementById('inp-content').value = state.content;
+            document.getElementById('inp-extras').value = state.extras;
+            renderImgList();
+        }
+
+        function save() {
+            // Sincroniza forms com state
+            state.title = document.getElementById('inp-title').value;
+            state.subtitle = document.getElementById('inp-subtitle').value;
+            state.hp = [document.getElementById('hp-c').value, document.getElementById('hp-m').value];
+            state.ea = [document.getElementById('ea-c').value, document.getElementById('ea-m').value];
+            state.san = [document.getElementById('san-c').value, document.getElementById('san-m').value];
+            state.gengar = [document.getElementById('gen-c').value, document.getElementById('gen-m').value];
+            state.content = document.getElementById('inp-content').value;
+            state.extras = document.getElementById('inp-extras').value;
+            
+            localStorage.setItem('hazuv6', JSON.stringify(state));
+        }
+
+        // Gera HTML visual (Editor) ou HTML final (Exportar)
+        function generateHTML(exportMode = false) {
+            
+            // Se for exportação, geramos a tag IMG simples
+            // Se for editor, geramos DIV wrappers para permitir controle
+            let imgsHTML = '';
+
+            if (exportMode) {
+                // MODO EXPORTAR: Apenas as tags IMG finais
+                imgsHTML = state.images.map((img, i) => 
+                    `<img src="${img.url}" class="ink-overlay" style="top:${img.top}px; left:${img.left}px; width:${img.width}px; transform:rotate(${img.rotate}deg); opacity:${img.opacity}; pointer-events:none;">`
+                ).join('');
+            } else {
+                // MODO EDITOR: Wrappers com controles
+                imgsHTML = state.images.map((img, i) => 
+                    `<div class="editor-image-wrapper" data-idx="${i}" style="top:${img.top}px; left:${img.left}px; width:${img.width}px; transform:rotate(${img.rotate}deg); opacity:${img.opacity};">
+                        <img src="${img.url}">
+                        <div class="resize-handle" data-idx="${i}"></div>
+                     </div>`
+                ).join('');
+            }
+            
+            // Tratamento de Spoiler
+            const extras = exportMode ? state.extras : state.extras.replace(/\n/g, '<br>').replace(/\[spoiler="?(.*?)"?\]([\s\S]*?)\[\/spoiler\]/gi, 
+                '<div class="spoiler-preview-box"><div class="spoiler-preview-header">$1</div><div class="spoiler-preview-content">$2</div></div>');
+
+            return `
+<link href="${CSS_URL}" rel="stylesheet" type="text/css">
+<div class="book-container" id="book-element" style="position:relative;">
+    ${imgsHTML}
+    <div class="book-header"><h1 class="book-title">${state.title}</h1><div class="book-subtitle">${state.subtitle}</div></div>
+    <div class="book-stats-grid">
+        <div class="book-stat-item"><span class="book-stat-label">Vitalidade</span><div class="book-bar-wrapper"><div class="nan-hp-fill"></div></div><span class="nan-hp-val">${state.hp[0]}/${state.hp[1]}</span></div>
+        <div class="book-stat-item"><span class="book-stat-label">Energia</span><div class="book-bar-wrapper"><div class="nan-ea-fill" style="width:100%;"></div></div><span class="nan-ea-val">${state.ea[0]}/${state.ea[1]}</span></div>
+        <div class="book-stat-item"><span class="book-stat-label">Sanidade</span><div class="book-bar-wrapper"><div class="nan-san-fill" style="width:100%;"></div></div><span class="nan-san-val">${state.san[0]}/${state.san[1]}</span></div>
+    </div>
+    <div class="book-content">${state.content.replace(/\n/g, '<br>')}</div>
+    <div class="book-extras">${extras}</div>
+    <div class="book-footer">
+        <div class="gengar-container"><span class="gengar-label">Shadow Gengar</span><div class="gengar-bar-wrapper"><div class="gengar-hp-fill"></div></div><span class="gengar-hp-val">${state.gengar[0]}/${state.gengar[1]}</span></div>
+        <div class="book-signature"></div>
+    </div>
+</div>`;
+        }
+
+        function render() {
+            save();
+            const container = document.getElementById('preview-container');
+            // Mantemos o scroll onde estava se possível
+            const scroll = container.scrollTop;
+            container.innerHTML = generateHTML(false);
+            container.scrollTop = scroll;
+            
+            // Restaura seleção se houver
+            if(selectedIdx !== null) {
+                const el = document.querySelector(`.editor-image-wrapper[data-idx="${selectedIdx}"]`);
+                if(el) el.classList.add('selected');
+            }
+        }
+
+        // --- LISTA LATERAL ---
+        function renderImgList() {
+            const l = document.getElementById('img-list'); l.innerHTML = '';
+            state.images.forEach((img, i) => {
+                const d = document.createElement('div'); 
+                d.className = 'image-item'; 
+                if(i === selectedIdx) d.style.borderColor = 'var(--main)';
+                d.innerHTML = `
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><b style="color:#8e44ad; cursor:pointer;" onclick="selectImg(${i})">IMG ${i+1} (Selecionar)</b><i class="fas fa-trash" style="color:#c0392b; cursor:pointer;" onclick="delImg(${i})"></i></div>
+                <input type="text" value="${img.url}" onchange="updImg(${i},'url',this.value)">
+                <div class="slider-group"><div><label>Opacidade</label><input type="range" min="0" max="1" step="0.1" value="${img.opacity}" oninput="updImg(${i},'opacity',this.value)"></div>
+                <div><label>Rotação</label><input type="range" min="-180" max="180" value="${img.rotate}" oninput="updImg(${i},'rotate',this.value)"></div></div>
+                `;
+                l.appendChild(d);
+            });
+        }
+        
+        function updImg(i, p, v) { state.images[i][p] = p==='url'?v:parseFloat(v); render(); }
+        function addImg() { state.images.push({url:'https://via.placeholder.com/150', top:50, left:50, width:150, rotate:0, opacity:0.8}); renderImgList(); render(); selectImg(state.images.length-1); }
+        function delImg(i) { if(confirm('Apagar?')){ state.images.splice(i,1); selectedIdx=null; renderImgList(); render(); } }
+
+        // --- INTERAÇÕES MOUSE (DRAG & RESIZE) ---
+        let selectedIdx = null;
+        let interactionMode = null; // 'drag' or 'resize'
+        let startX, startY;
+        let startLeft, startTop, startWidth;
+
+        function setupInteractions() {
+            const wrapper = document.getElementById('preview-wrapper');
+            
+            wrapper.addEventListener('mousedown', (e) => {
+                
+                // 1. Verifica se clicou na ALÇA de resize
+                if(e.target.classList.contains('resize-handle')) {
+                    e.preventDefault(); e.stopPropagation();
+                    const idx = parseInt(e.target.getAttribute('data-idx'));
+                    startResize(idx, e);
+                    return;
+                }
+
+                // 2. Verifica se clicou na IMAGEM (para arrastar/selecionar)
+                // O target pode ser o wrapper ou a img dentro dele (mas img tem pointer-events:none via css)
+                const imgWrapper = e.target.closest('.editor-image-wrapper');
+                if(imgWrapper) {
+                    e.preventDefault(); e.stopPropagation();
+                    const idx = parseInt(imgWrapper.getAttribute('data-idx'));
+                    selectImg(idx); // Seleciona visualmente
+                    startDrag(idx, e, imgWrapper);
+                    return;
+                }
+
+                // 3. Clicou fora -> Deselecionar
+                if(!e.target.closest('.editor-image-wrapper') && !e.target.closest('.resize-handle')) {
+                    selectedIdx = null;
+                    document.querySelectorAll('.editor-image-wrapper').forEach(el => el.classList.remove('selected'));
+                    renderImgList();
+                }
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if(interactionMode === 'drag') doDrag(e);
+                if(interactionMode === 'resize') doResize(e);
+            });
+
+            window.addEventListener('mouseup', () => {
+                if(interactionMode) {
+                    interactionMode = null;
+                    // Remove classes de arraste
+                    document.querySelectorAll('.editor-image-wrapper').forEach(el => el.classList.remove('is-dragging'));
+                    save(); // Salva final
+                    renderImgList(); // Atualiza painel
+                }
+            });
+        }
+
+        function selectImg(idx) {
+            selectedIdx = idx;
+            // Atualiza visual
+            document.querySelectorAll('.editor-image-wrapper').forEach(el => el.classList.remove('selected'));
+            const el = document.querySelector(`.editor-image-wrapper[data-idx="${idx}"]`);
+            if(el) el.classList.add('selected');
+            renderImgList(); // Atualiza lateral
+        }
+
+        function startDrag(idx, e, el) {
+            interactionMode = 'drag';
+            startX = e.clientX;
+            startY = e.clientY;
+            startLeft = state.images[idx].left;
+            startTop = state.images[idx].top;
+            el.classList.add('is-dragging');
+        }
+
+        function doDrag(e) {
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            state.images[selectedIdx].left = startLeft + dx;
+            state.images[selectedIdx].top = startTop + dy;
+            
+            // Atualiza apenas o estilo inline para performance
+            const el = document.querySelector(`.editor-image-wrapper[data-idx="${selectedIdx}"]`);
+            if(el) {
+                el.style.left = state.images[selectedIdx].left + 'px';
+                el.style.top = state.images[selectedIdx].top + 'px';
+            }
+        }
+
+        function startResize(idx, e) {
+            interactionMode = 'resize';
+            startX = e.clientX;
+            startWidth = state.images[idx].width;
+        }
+
+        function doResize(e) {
+            // Calcula novo tamanho baseado no movimento X
+            const dx = e.clientX - startX;
+            let newWidth = startWidth + dx;
+            if(newWidth < 20) newWidth = 20; // Mínimo
+            
+            state.images[selectedIdx].width = newWidth;
+            
+            const el = document.querySelector(`.editor-image-wrapper[data-idx="${selectedIdx}"]`);
+            if(el) el.style.width = newWidth + 'px';
+        }
+
+
+        // --- IMPORTAR / EXPORTAR ---
+        function copyCode() {
+            const h = generateHTML(true);
+            navigator.clipboard.writeText(h.replace(/\s+/g,' ').trim());
+            showToast("Copiado com sucesso!");
+        }
+
+        function doImport() {
+            const html = document.getElementById('import-area').value;
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            try {
+                // Textos
+                const txt = (s) => (doc.querySelector(s)?.textContent || '').trim();
+                const attr = (s) => (doc.querySelector(s)?.innerHTML || '').trim();
+                const stat = (s) => (doc.querySelector(s)?.textContent.split('/') || [0,0]);
+
+                state.title = txt('.book-title') || state.title;
+                state.subtitle = txt('.book-subtitle') || state.subtitle;
+                state.content = attr('.book-content').replace(/<br\s*\/?>/gi, '\n');
+                state.extras = attr('.book-extras');
+
+                const hp=stat('.nan-hp-val'); if(hp[1]) state.hp=hp;
+                const ea=stat('.nan-ea-val'); if(ea[1]) state.ea=ea;
+                const san=stat('.nan-san-val'); if(san[1]) state.san=san;
+                const gen=stat('.gengar-hp-val'); if(gen[1]) state.gengar=gen;
+
+                // Imagens
+                state.images = [];
+                // Tenta pegar tags IMG diretas (formato exportação) ou DIVs (formato não comum mas possível)
+                // O padrão de exportação é <img>.
+                doc.querySelectorAll('img.ink-overlay').forEach(img => {
+                    const style = img.getAttribute('style') || "";
+                    const getVal = (key) => {
+                        const re = new RegExp(`${key}\\s*:\\s*(-?[\\d.]+)`);
+                        const m = style.match(re);
+                        return m ? parseFloat(m[1]) : null;
+                    }
+                    state.images.push({
+                        url: img.src,
+                        top: getVal('top') ?? 50,
+                        left: getVal('left') ?? 50,
+                        width: getVal('width') || 150,
+                        rotate: getVal('rotate') || 0,
+                        opacity: getVal('opacity') || 1
+                    });
+                });
+                
+                updateInputs(); render(); closeImport(); showToast("Importado!");
+            } catch(e) { alert('Erro no HTML.'); }
+        }
+
+        function openImport(){ document.getElementById('import-modal').style.display='flex'; }
+        function closeImport(){ document.getElementById('import-modal').style.display='none'; }
+        function clearData() { if(confirm('Limpar tudo?')) { localStorage.removeItem('hazuv6'); location.reload(); } }
+        function showToast(m) { const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2000); }
+
+        init();
+    </script>
+</body>
+</html>
