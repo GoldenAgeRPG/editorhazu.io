@@ -8,7 +8,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
     <style>
-        /* --- TEMA DARK/ROXO --- */
+        /* --- TEMA --- */
         :root { --bg: #0f0f0f; --panel: #1a1a1a; --main: #8e44ad; --text: #ecf0f1; --border: #333; }
         body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; user-select: none; }
 
@@ -27,8 +27,19 @@
         input, textarea { background: #252525; border: 1px solid var(--border); color: #fff; padding: 8px; border-radius: 4px; width: 100%; box-sizing: border-box; font-family: inherit; }
         input:focus, textarea:focus { outline: none; border-color: var(--main); }
         .slider-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .image-item { background: #222; border: 1px solid var(--border); padding: 10px; border-radius: 4px; position: relative; margin-bottom: 10px; }
-        
+        .checkbox-wrapper { display: flex; align-items: center; gap: 8px; margin-top: 5px; cursor: pointer; color: #fff; text-transform: none; background: rgba(142,68,173,0.1); padding: 5px; border-radius: 4px; border: 1px solid #333; }
+        .checkbox-wrapper input { width: auto; margin: 0; }
+
+        /* BBCODE TOOLBAR */
+        .bb-toolbar { display: flex; gap: 4px; margin-bottom: 5px; flex-wrap: wrap; }
+        .bb-btn { 
+            background: #2c2c2c; border: 1px solid #444; color: #ccc; 
+            width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; border-radius: 3px; padding: 0; margin: 0;
+        }
+        .bb-btn:hover { background: var(--main); color: white; border-color: var(--main); }
+        .bb-separator { width: 1px; background: #444; margin: 0 2px; }
+
         /* PREVIEW AREA */
         .preview-area { 
             flex: 1; background: #050505; 
@@ -37,75 +48,47 @@
             position: relative; display: flex; justify-content: center; align-items: flex-start;
         }
 
-        /* --- VISUAL DE SELEÇÃO E REDIMENSIONAMENTO --- */
-        
-        /* Container das imagens no editor (para permitir seleção) */
-        .editor-image-wrapper {
-            position: absolute;
-            z-index: 100;
-            cursor: grab;
-            /* Impede seleção de texto nativa */
-            user-select: none; 
+        /* --- CROPPER VISUAL --- */
+        #preview-cropper {
+            position: relative; width: 95%; max-width: 650px; margin: 0 auto; overflow: hidden; min-height: 200px;
+            box-shadow: 0 0 0 1px #222; 
         }
-        
-        /* A imagem real dentro do wrapper */
+        #preview-cropper .book-container { margin: 0 !important; width: 100% !important; }
+
+        /* --- EDITOR IMAGES --- */
+        .editor-image-wrapper { position: absolute; z-index: 100; cursor: grab; user-select: none; }
         .editor-image-wrapper img {
-            width: 100%; 
-            height: 100%;
-            display: block;
-            pointer-events: none; /* O mouse interage com o wrapper, não com a img */
-            mix-blend-mode: multiply; /* Efeito de tinta */
-            filter: grayscale(100%) contrast(1.2) brightness(0.95);
+            width: 100%; height: 100%; display: block; pointer-events: none;
+            mix-blend-mode: multiply; filter: grayscale(100%) contrast(1.2) brightness(0.95);
         }
-
-        /* Estado Selecionado (Borda Roxa) */
-        .editor-image-wrapper.selected {
-            outline: 2px dashed var(--main);
-            z-index: 110;
-        }
-
-        /* Alça de Redimensionamento (Canto Inferior Direito) */
+        .editor-image-wrapper.selected { outline: 2px dashed var(--main); z-index: 110; }
         .resize-handle {
-            width: 12px; height: 12px;
-            background: var(--main);
-            border: 2px solid #fff;
-            position: absolute;
-            bottom: -6px; right: -6px;
-            cursor: nwse-resize; /* Cursor diagonal */
-            display: none; /* Escondido por padrão */
-            z-index: 120;
-            border-radius: 50%;
+            width: 12px; height: 12px; background: var(--main); border: 2px solid #fff;
+            position: absolute; bottom: -6px; right: -6px; cursor: nwse-resize;
+            display: none; z-index: 120; border-radius: 50%;
         }
+        .editor-image-wrapper.selected .resize-handle { display: block; }
+        .editor-image-wrapper.is-dragging { cursor: grabbing; opacity: 0.9; }
 
-        .editor-image-wrapper.selected .resize-handle {
-            display: block; /* Mostra apenas quando selecionado */
-        }
-
-        /* Classes auxiliares */
-        .editor-image-wrapper.is-dragging { cursor: grabbing; opacity: 0.7; }
-        
-        /* Bloqueia cliques no texto para focar nas imagens */
-        .preview-area .book-container > div:not(.editor-image-wrapper) {
-            pointer-events: none;
-        }
+        #preview-cropper .book-container > div:not(.editor-image-wrapper) { pointer-events: none; }
+        .book-container, .book-container * { box-sizing: border-box !important; }
 
         /* UTILS */
+        .image-item { background: #222; border: 1px solid var(--border); padding: 10px; border-radius: 4px; position: relative; margin-bottom: 10px; }
+        .image-item.active { border-color: var(--main); box-shadow: 0 0 8px rgba(142,68,173,0.3); }
+        .spoiler-preview-box { margin: 5px 0; border: 1px solid #5e4b35; background: rgba(0,0,0,0.1); pointer-events: none; }
+        .spoiler-preview-header { padding: 5px 10px; border-bottom: 1px dashed #5e4b35; font-weight: bold; color: #5e4b35; }
+        .spoiler-preview-content { padding: 10px; color: #333; }
         .toast { position: fixed; bottom: 20px; right: 20px; background: var(--main); color: white; padding: 10px 20px; border-radius: 4px; opacity: 0; pointer-events: none; transition: 0.3s; z-index: 9999; }
         .toast.show { opacity: 1; transform: translateY(-10px); }
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 2000; display: none; justify-content: center; align-items: center; }
         .modal { background: var(--panel); width: 90%; max-width: 600px; padding: 20px; border-radius: 6px; border: 1px solid var(--main); }
-
-        /* Estilo do Spoiler simulado */
-        .spoiler-preview-box { margin: 5px 0; border: 1px solid #5e4b35; background: rgba(0,0,0,0.1); }
-        .spoiler-preview-header { padding: 5px 10px; border-bottom: 1px dashed #5e4b35; font-weight: bold; color: #5e4b35; }
-        .spoiler-preview-content { padding: 10px; color: #333; }
-
     </style>
 </head>
 <body>
 
     <header>
-        <h1><i class="fas fa-pen-nib"></i> JKGA Editor - Hazu </h1>
+        <h1><i class="fas fa-magic"></i> JKGA Editor - Hazu</h1>
         <div style="display:flex; gap:10px;">
             <button onclick="openImport()">Importar</button>
             <button onclick="clearData()">Limpar</button>
@@ -116,7 +99,7 @@
     <div class="main-container">
         <div class="sidebar">
             <div style="background:#222; padding:10px; border-radius:4px; font-size:0.8rem; color:#aaa; margin-bottom:10px;">
-                <i class="fas fa-info-circle"></i> <b>Dica:</b> Clique na imagem para selecionar. Arraste para mover. Puxe a bolinha roxa no canto para redimensionar.
+                <i class="fas fa-info-circle"></i> <b>Nota:</b> "Fixar no Fundo" é calculado apenas ao gerar o código final.
             </div>
 
             <div>
@@ -136,10 +119,33 @@
 
             <div>
                 <label>Conteúdo</label>
+                <div class="bb-toolbar">
+                    <button class="bb-btn" title="Negrito" onclick="addTag('b', 'inp-content')"><i class="fas fa-bold"></i></button>
+                    <button class="bb-btn" title="Itálico" onclick="addTag('i', 'inp-content')"><i class="fas fa-italic"></i></button>
+                    <button class="bb-btn" title="Sublinhado" onclick="addTag('u', 'inp-content')"><i class="fas fa-underline"></i></button>
+                    <button class="bb-btn" title="Riscado" onclick="addTag('strike', 'inp-content')"><i class="fas fa-strikethrough"></i></button>
+                    <div class="bb-separator"></div>
+                    <button class="bb-btn" title="Escolher Cor" onclick="triggerColor('inp-content')"><i class="fas fa-palette"></i></button>
+                    <button class="bb-btn" title="Aplicar Cor" onclick="confirmColor('inp-content', 'color-content')"><i class="fas fa-check"></i></button>
+                    <button class="bb-btn" title="Spoiler" onclick="addTag('spoiler', 'inp-content')"><i class="fas fa-eye-slash"></i></button>
+                </div>
+                <input type="color" id="color-content" style="display:none;">
                 <textarea id="inp-content" oninput="render()" style="height:150px;"></textarea>
             </div>
+
             <div>
                 <label>Considerações</label>
+                <div class="bb-toolbar">
+                    <button class="bb-btn" onclick="addTag('b', 'inp-extras')"><i class="fas fa-bold"></i></button>
+                    <button class="bb-btn" onclick="addTag('i', 'inp-extras')"><i class="fas fa-italic"></i></button>
+                    <button class="bb-btn" onclick="addTag('u', 'inp-extras')"><i class="fas fa-underline"></i></button>
+                    <button class="bb-btn" onclick="addTag('strike', 'inp-extras')"><i class="fas fa-strikethrough"></i></button>
+                    <div class="bb-separator"></div>
+                    <button class="bb-btn" title="Escolher Cor" onclick="triggerColor('inp-extras')"><i class="fas fa-palette"></i></button>
+                    <button class="bb-btn" title="Aplicar Cor" onclick="confirmColor('inp-extras', 'color-extras')"><i class="fas fa-check"></i></button>
+                    <button class="bb-btn" onclick="addTag('spoiler', 'inp-extras')"><i class="fas fa-eye-slash"></i></button>
+                </div>
+                <input type="color" id="color-extras" style="display:none;">
                 <textarea id="inp-extras" oninput="render()" style="height:100px;"></textarea>
             </div>
 
@@ -151,7 +157,9 @@
         </div>
 
         <div class="preview-area" id="preview-wrapper">
-            <div id="preview-container"></div>
+            <div id="preview-cropper">
+                <div id="preview-container"></div>
+            </div>
         </div>
     </div>
 
@@ -170,27 +178,21 @@
     <script>
         const CSS_URL = "https://goldenagerpg.github.io/templates.io/nan-hazu-template3.css";
         
-        // ESTADO INICIAL
         let state = {
             title: "O Banquete", subtitle: "Prato Principal",
             hp: [1200, 1200], ea: [3000, 3000], san: [95, 100], gengar: [800, 800],
             content: "O óleo na panela velha estalava como pequenos ossos se partindo...",
             extras: '[spoiler="Notas do Chef"]<b>Cozimento:</b> Lento[/spoiler]',
             images: [
-                { url: 'https://i.pinimg.com/originals/e1/a2/24/e1a224e377169ac212240950700e8850.png', top: 160, left: 400, width: 220, rotate: 2, opacity: 0.7 },
-                { url: 'https://i.pinimg.com/1200x/4b/4c/60/4b4c60057c19ae29272a125ec9afdb4d.jpg', top: 700, left: 15, width: 130, rotate: -10, opacity: 0.8 }
+                { url: 'https://i.pinimg.com/originals/e1/a2/24/e1a224e377169ac212240950700e8850.png', top: 160, left: 65, width: 220, rotate: 2, opacity: 0.7, anchorBottom: false },
+                { url: 'https://i.pinimg.com/1200x/4b/4c/60/4b4c60057c19ae29272a125ec9afdb4d.jpg', top: 700, left: 5, width: 130, rotate: -10, opacity: 0.8, anchorBottom: true }
             ]
         };
 
-        // --- SISTEMA CENTRAL ---
-
         function init() {
-            const s = localStorage.getItem('hazuv6');
+            const s = localStorage.getItem('hazuV16');
             if(s) try { state = JSON.parse(s); } catch(e){}
-            updateInputs(); 
-            render(); 
-            // Inicia listeners
-            setupInteractions();
+            updateInputs(); render(); setupInteractions();
         }
 
         function updateInputs() {
@@ -205,8 +207,39 @@
             renderImgList();
         }
 
+        // --- BBCODE ---
+        function addTag(tag, id) {
+            const el = document.getElementById(id);
+            const start = el.selectionStart; const end = el.selectionEnd;
+            const text = el.value; const sel = text.substring(start, end);
+            let o='', c='';
+            if(tag=='b'){o='[b]';c='[/b]'} else if(tag=='i'){o='[i]';c='[/i]'}
+            else if(tag=='u'){o='[u]';c='[/u]'} else if(tag=='strike'){o='[strike]';c='[/strike]'}
+            else if(tag=='spoiler'){o='[spoiler="Título"]';c='[/spoiler]'}
+            el.value = text.substring(0,start)+o+sel+c+text.substring(end);
+            el.focus(); el.selectionStart=start+o.length; el.selectionEnd=start+o.length+sel.length;
+            render();
+        }
+        
+        function triggerColor(id) { document.getElementById(id==='inp-content'?'color-content':'color-extras').click(); }
+        
+        // NOVA FUNÇÃO: Pega o valor do input e aplica
+        function confirmColor(textareaId, colorInputId) {
+            const hex = document.getElementById(colorInputId).value;
+            applyColor(textareaId, hex);
+        }
+
+        function applyColor(id, hex) {
+            const el = document.getElementById(id);
+            const start = el.selectionStart; const end = el.selectionEnd;
+            const txt = el.value; const sel = txt.substring(start, end);
+            const o = `[color=${hex}]`; const c = `[/color]`;
+            el.value = txt.substring(0,start)+o+sel+c+txt.substring(end);
+            el.focus(); el.selectionStart=start+o.length; el.selectionEnd=start+o.length+sel.length;
+            render();
+        }
+
         function save() {
-            // Sincroniza forms com state
             state.title = document.getElementById('inp-title').value;
             state.subtitle = document.getElementById('inp-subtitle').value;
             state.hp = [document.getElementById('hp-c').value, document.getElementById('hp-m').value];
@@ -215,250 +248,255 @@
             state.gengar = [document.getElementById('gen-c').value, document.getElementById('gen-m').value];
             state.content = document.getElementById('inp-content').value;
             state.extras = document.getElementById('inp-extras').value;
-            
-            localStorage.setItem('hazuv6', JSON.stringify(state));
+            localStorage.setItem('hazuV16', JSON.stringify(state));
         }
 
-        // Gera HTML visual (Editor) ou HTML final (Exportar)
-        function generateHTML(exportMode = false) {
-            
-            // Se for exportação, geramos a tag IMG simples
-            // Se for editor, geramos DIV wrappers para permitir controle
-            let imgsHTML = '';
-
-            if (exportMode) {
-                // MODO EXPORTAR: Apenas as tags IMG finais
-                imgsHTML = state.images.map((img, i) => 
-                    `<img src="${img.url}" class="ink-overlay" style="top:${img.top}px; left:${img.left}px; width:${img.width}px; transform:rotate(${img.rotate}deg); opacity:${img.opacity}; pointer-events:none;">`
-                ).join('');
-            } else {
-                // MODO EDITOR: Wrappers com controles
-                imgsHTML = state.images.map((img, i) => 
-                    `<div class="editor-image-wrapper" data-idx="${i}" style="top:${img.top}px; left:${img.left}px; width:${img.width}px; transform:rotate(${img.rotate}deg); opacity:${img.opacity};">
-                        <img src="${img.url}">
-                        <div class="resize-handle" data-idx="${i}"></div>
-                     </div>`
-                ).join('');
-            }
-            
-            // Tratamento de Spoiler
-            const extras = exportMode ? state.extras : state.extras.replace(/\n/g, '<br>').replace(/\[spoiler="?(.*?)"?\]([\s\S]*?)\[\/spoiler\]/gi, 
+        // --- RENDER ---
+        function parsePreview(txt) {
+            let h = txt.replace(/\n/g, '<br>');
+            h = h.replace(/\[b\](.*?)\[\/b\]/gi, '<b>$1</b>');
+            h = h.replace(/\[i\](.*?)\[\/i\]/gi, '<i>$1</i>');
+            h = h.replace(/\[u\](.*?)\[\/u\]/gi, '<u>$1</u>');
+            h = h.replace(/\[strike\](.*?)\[\/strike\]/gi, '<s>$1</s>');
+            h = h.replace(/\[color=(.*?)\](.*?)\[\/color\]/gi, '<span style="color:$1">$2</span>');
+            h = h.replace(/\[spoiler="?(.*?)"?\]([\s\S]*?)\[\/spoiler\]/gi, 
                 '<div class="spoiler-preview-box"><div class="spoiler-preview-header">$1</div><div class="spoiler-preview-content">$2</div></div>');
+            return h;
+        }
 
-            return `
+        function generateHTML(exportMode = false) {
+            let imgsHTML = '';
+            const containerEl = document.getElementById('preview-container').querySelector('.book-container');
+            const totalHeight = containerEl ? containerEl.scrollHeight : 800; 
+
+            imgsHTML = state.images.map((img, i) => {
+                let posStyle = '';
+                if (exportMode) {
+                    const domImgWrapper = containerEl ? containerEl.querySelector(`.editor-image-wrapper[data-idx="${i}"]`) : null;
+                    const imgH = domImgWrapper ? domImgWrapper.offsetHeight : (img.width);
+                    if(img.anchorBottom) {
+                        const distBottomPx = totalHeight - img.top - imgH;
+                        const distBottomPct = (distBottomPx / totalHeight) * 100;
+                        posStyle = `bottom:${distBottomPct}%; left:${img.left}%;`;
+                    } else {
+                        const topPct = (img.top / totalHeight) * 100;
+                        posStyle = `top:${topPct}%; left:${img.left}%;`;
+                    }
+                    return `<img src="${img.url}" class="ink-overlay" style="${posStyle} width:${img.width}px; transform:rotate(${img.rotate}deg); opacity:${img.opacity}; pointer-events:none; position:absolute;">`;
+                } else {
+                    return `<div class="editor-image-wrapper" data-idx="${i}" style="top:${img.top}px; left:${img.left}%; width:${img.width}px; transform:rotate(${img.rotate}deg);">
+                        <img src="${img.url}" style="opacity:${img.opacity}">
+                        <div class="resize-handle" data-idx="${i}"></div>
+                      </div>`;
+                }
+            }).join('');
+            
+            let cHtml = exportMode ? state.content.replace(/\n/g, '<br>') : parsePreview(state.content);
+            let eHtml = exportMode ? state.extras.replace(/\n/g, '<br>') : parsePreview(state.extras);
+
+            const content = `
+                <div class="book-container" style="position:relative; width:100%;">
+                    ${imgsHTML}
+                    <div class="book-header"><h1 class="book-title">${state.title}</h1><div class="book-subtitle">${state.subtitle}</div></div>
+                    <div class="book-stats-grid">
+                        <div class="book-stat-item"><span class="book-stat-label">Vitalidade</span><div class="book-bar-wrapper"><div class="nan-hp-fill"></div></div><span class="nan-hp-val">${state.hp[0]}/${state.hp[1]}</span></div>
+                        <div class="book-stat-item"><span class="book-stat-label">Energia</span><div class="book-bar-wrapper"><div class="nan-ea-fill" style="width:100%;"></div></div><span class="nan-ea-val">${state.ea[0]}/${state.ea[1]}</span></div>
+                        <div class="book-stat-item"><span class="book-stat-label">Sanidade</span><div class="book-bar-wrapper"><div class="nan-san-fill" style="width:100%;"></div></div><span class="nan-san-val">${state.san[0]}/${state.san[1]}</span></div>
+                    </div>
+                    <div class="book-content">${cHtml}</div>
+                    <div class="book-extras">${eHtml}</div>
+                    <div class="book-footer">
+                        <div class="gengar-container"><span class="gengar-label">Shadow Gengar</span><div class="gengar-bar-wrapper"><div class="gengar-hp-fill"></div></div><span class="gengar-hp-val">${state.gengar[0]}/${state.gengar[1]}</span></div>
+                        <div class="book-signature"></div>
+                    </div>
+                </div>`;
+
+            if(exportMode) {
+                return `
 <link href="${CSS_URL}" rel="stylesheet" type="text/css">
-<div class="book-container" id="book-element" style="position:relative;">
-    ${imgsHTML}
-    <div class="book-header"><h1 class="book-title">${state.title}</h1><div class="book-subtitle">${state.subtitle}</div></div>
-    <div class="book-stats-grid">
-        <div class="book-stat-item"><span class="book-stat-label">Vitalidade</span><div class="book-bar-wrapper"><div class="nan-hp-fill"></div></div><span class="nan-hp-val">${state.hp[0]}/${state.hp[1]}</span></div>
-        <div class="book-stat-item"><span class="book-stat-label">Energia</span><div class="book-bar-wrapper"><div class="nan-ea-fill" style="width:100%;"></div></div><span class="nan-ea-val">${state.ea[0]}/${state.ea[1]}</span></div>
-        <div class="book-stat-item"><span class="book-stat-label">Sanidade</span><div class="book-bar-wrapper"><div class="nan-san-fill" style="width:100%;"></div></div><span class="nan-san-val">${state.san[0]}/${state.san[1]}</span></div>
-    </div>
-    <div class="book-content">${state.content.replace(/\n/g, '<br>')}</div>
-    <div class="book-extras">${extras}</div>
-    <div class="book-footer">
-        <div class="gengar-container"><span class="gengar-label">Shadow Gengar</span><div class="gengar-bar-wrapper"><div class="gengar-hp-fill"></div></div><span class="gengar-hp-val">${state.gengar[0]}/${state.gengar[1]}</span></div>
-        <div class="book-signature"></div>
-    </div>
+<div style="max-width:650px; margin:40px auto; overflow:hidden; position:relative; box-sizing:border-box;">
+    ${content}
 </div>`;
+            } else {
+                return content;
+            }
         }
 
         function render() {
             save();
             const container = document.getElementById('preview-container');
-            // Mantemos o scroll onde estava se possível
             const scroll = container.scrollTop;
             container.innerHTML = generateHTML(false);
             container.scrollTop = scroll;
-            
-            // Restaura seleção se houver
             if(selectedIdx !== null) {
                 const el = document.querySelector(`.editor-image-wrapper[data-idx="${selectedIdx}"]`);
                 if(el) el.classList.add('selected');
             }
         }
 
-        // --- LISTA LATERAL ---
         function renderImgList() {
             const l = document.getElementById('img-list'); l.innerHTML = '';
             state.images.forEach((img, i) => {
                 const d = document.createElement('div'); 
                 d.className = 'image-item'; 
-                if(i === selectedIdx) d.style.borderColor = 'var(--main)';
+                if(i === selectedIdx) d.classList.add('active');
                 d.innerHTML = `
-                <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><b style="color:#8e44ad; cursor:pointer;" onclick="selectImg(${i})">IMG ${i+1} (Selecionar)</b><i class="fas fa-trash" style="color:#c0392b; cursor:pointer;" onclick="delImg(${i})"></i></div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                    <b style="color:#8e44ad; cursor:pointer;" onclick="selectImg(${i})">IMG ${i+1}</b>
+                    <i class="fas fa-trash" style="color:#c0392b; cursor:pointer;" onclick="delImg(${i})"></i>
+                </div>
                 <input type="text" value="${img.url}" onchange="updImg(${i},'url',this.value)">
-                <div class="slider-group"><div><label>Opacidade</label><input type="range" min="0" max="1" step="0.1" value="${img.opacity}" oninput="updImg(${i},'opacity',this.value)"></div>
-                <div><label>Rotação</label><input type="range" min="-180" max="180" value="${img.rotate}" oninput="updImg(${i},'rotate',this.value)"></div></div>
+                
+                <label class="checkbox-wrapper">
+                    <input type="checkbox" ${img.anchorBottom ? 'checked' : ''} onchange="toggleAnchor(${i})">
+                    <span>Fixar no Fundo</span>
+                </label>
+
+                <div class="slider-group" style="margin-top:8px;">
+                    <div><label>Opacidade</label><input type="range" min="0" max="1" step="0.1" value="${img.opacity}" oninput="updImg(${i},'opacity',this.value)"></div>
+                    <div><label>Rotação</label><input type="range" min="-180" max="180" value="${img.rotate}" oninput="updImg(${i},'rotate',this.value)"></div>
+                </div>
                 `;
                 l.appendChild(d);
             });
         }
         
-        function updImg(i, p, v) { state.images[i][p] = p==='url'?v:parseFloat(v); render(); }
-        function addImg() { state.images.push({url:'https://via.placeholder.com/150', top:50, left:50, width:150, rotate:0, opacity:0.8}); renderImgList(); render(); selectImg(state.images.length-1); }
+        function updImg(i, p, v) { 
+            state.images[i][p] = (p==='url') ? v : parseFloat(v); 
+            render(); 
+        }
+
+        function toggleAnchor(i) {
+            state.images[i].anchorBottom = !state.images[i].anchorBottom;
+            renderImgList(); 
+        }
+
+        function addImg() { state.images.push({url:'https://via.placeholder.com/150', top:50, bottom:50, left:50, width:150, rotate:0, opacity:0.8, anchorBottom: false}); renderImgList(); render(); selectImg(state.images.length-1); }
         function delImg(i) { if(confirm('Apagar?')){ state.images.splice(i,1); selectedIdx=null; renderImgList(); render(); } }
 
-        // --- INTERAÇÕES MOUSE (DRAG & RESIZE) ---
+        // --- INTERAÇÕES ---
         let selectedIdx = null;
-        let interactionMode = null; // 'drag' or 'resize'
-        let startX, startY;
-        let startLeft, startTop, startWidth;
+        let interactionMode = null;
+        let startX, startY, startLeftPercent, startTopPx, containerW;
 
         function setupInteractions() {
             const wrapper = document.getElementById('preview-wrapper');
-            
             wrapper.addEventListener('mousedown', (e) => {
-                
-                // 1. Verifica se clicou na ALÇA de resize
                 if(e.target.classList.contains('resize-handle')) {
                     e.preventDefault(); e.stopPropagation();
-                    const idx = parseInt(e.target.getAttribute('data-idx'));
-                    startResize(idx, e);
-                    return;
+                    startResize(parseInt(e.target.getAttribute('data-idx')), e); return;
                 }
-
-                // 2. Verifica se clicou na IMAGEM (para arrastar/selecionar)
-                // O target pode ser o wrapper ou a img dentro dele (mas img tem pointer-events:none via css)
                 const imgWrapper = e.target.closest('.editor-image-wrapper');
                 if(imgWrapper) {
                     e.preventDefault(); e.stopPropagation();
                     const idx = parseInt(imgWrapper.getAttribute('data-idx'));
-                    selectImg(idx); // Seleciona visualmente
-                    startDrag(idx, e, imgWrapper);
-                    return;
+                    selectImg(idx); startDrag(idx, e, imgWrapper); return;
                 }
-
-                // 3. Clicou fora -> Deselecionar
-                if(!e.target.closest('.editor-image-wrapper') && !e.target.closest('.resize-handle')) {
-                    selectedIdx = null;
-                    document.querySelectorAll('.editor-image-wrapper').forEach(el => el.classList.remove('selected'));
-                    renderImgList();
+                if(!e.target.closest('.editor-image-wrapper')) {
+                    selectedIdx = null; render(); renderImgList();
                 }
             });
-
             window.addEventListener('mousemove', (e) => {
                 if(interactionMode === 'drag') doDrag(e);
                 if(interactionMode === 'resize') doResize(e);
             });
-
             window.addEventListener('mouseup', () => {
                 if(interactionMode) {
                     interactionMode = null;
-                    // Remove classes de arraste
                     document.querySelectorAll('.editor-image-wrapper').forEach(el => el.classList.remove('is-dragging'));
-                    save(); // Salva final
-                    renderImgList(); // Atualiza painel
+                    save(); renderImgList();
                 }
             });
         }
 
-        function selectImg(idx) {
-            selectedIdx = idx;
-            // Atualiza visual
-            document.querySelectorAll('.editor-image-wrapper').forEach(el => el.classList.remove('selected'));
-            const el = document.querySelector(`.editor-image-wrapper[data-idx="${idx}"]`);
-            if(el) el.classList.add('selected');
-            renderImgList(); // Atualiza lateral
-        }
+        function selectImg(idx) { selectedIdx = idx; render(); renderImgList(); }
 
         function startDrag(idx, e, el) {
-            interactionMode = 'drag';
-            startX = e.clientX;
-            startY = e.clientY;
-            startLeft = state.images[idx].left;
-            startTop = state.images[idx].top;
+            interactionMode = 'drag'; 
+            startX = e.clientX; startY = e.clientY;
+            startLeftPercent = state.images[idx].left; 
+            startTopPx = state.images[idx].top; 
+            const book = document.querySelector('.book-container');
+            containerW = book.getBoundingClientRect().width;
             el.classList.add('is-dragging');
         }
 
         function doDrag(e) {
-            const dx = e.clientX - startX;
-            const dy = e.clientY - startY;
-            state.images[selectedIdx].left = startLeft + dx;
-            state.images[selectedIdx].top = startTop + dy;
-            
-            // Atualiza apenas o estilo inline para performance
+            const dxPx = e.clientX - startX;
+            const dyPx = e.clientY - startY;
+            const dxPercent = (dxPx / containerW) * 100;
+            state.images[selectedIdx].left = startLeftPercent + dxPercent;
+            state.images[selectedIdx].top = startTopPx + dyPx; 
             const el = document.querySelector(`.editor-image-wrapper[data-idx="${selectedIdx}"]`);
-            if(el) {
-                el.style.left = state.images[selectedIdx].left + 'px';
-                el.style.top = state.images[selectedIdx].top + 'px';
+            if(el) { 
+                el.style.left = state.images[selectedIdx].left + '%'; 
+                el.style.top = state.images[selectedIdx].top + 'px'; 
             }
         }
 
-        function startResize(idx, e) {
-            interactionMode = 'resize';
-            startX = e.clientX;
-            startWidth = state.images[idx].width;
-        }
-
+        function startResize(idx, e) { interactionMode = 'resize'; startX = e.clientX; startWidth = state.images[idx].width; }
         function doResize(e) {
-            // Calcula novo tamanho baseado no movimento X
             const dx = e.clientX - startX;
-            let newWidth = startWidth + dx;
-            if(newWidth < 20) newWidth = 20; // Mínimo
-            
+            let newWidth = startWidth + dx; if(newWidth < 20) newWidth = 20;
             state.images[selectedIdx].width = newWidth;
-            
             const el = document.querySelector(`.editor-image-wrapper[data-idx="${selectedIdx}"]`);
             if(el) el.style.width = newWidth + 'px';
         }
 
-
-        // --- IMPORTAR / EXPORTAR ---
-        function copyCode() {
-            const h = generateHTML(true);
-            navigator.clipboard.writeText(h.replace(/\s+/g,' ').trim());
-            showToast("Copiado com sucesso!");
-        }
-
+        // --- IMPORT/EXPORT ---
+        function copyCode() { navigator.clipboard.writeText(generateHTML(true).replace(/\s+/g,' ').trim()); showToast("Copiado!"); }
+        
         function doImport() {
             const html = document.getElementById('import-area').value;
             const doc = new DOMParser().parseFromString(html, 'text/html');
             try {
-                // Textos
                 const txt = (s) => (doc.querySelector(s)?.textContent || '').trim();
                 const attr = (s) => (doc.querySelector(s)?.innerHTML || '').trim();
                 const stat = (s) => (doc.querySelector(s)?.textContent.split('/') || [0,0]);
-
-                state.title = txt('.book-title') || state.title;
-                state.subtitle = txt('.book-subtitle') || state.subtitle;
-                state.content = attr('.book-content').replace(/<br\s*\/?>/gi, '\n');
-                state.extras = attr('.book-extras');
-
+                state.title = txt('.book-title') || state.title; state.subtitle = txt('.book-subtitle') || state.subtitle;
+                state.content = attr('.book-content').replace(/<br\s*\/?>/gi, '\n'); state.extras = attr('.book-extras');
                 const hp=stat('.nan-hp-val'); if(hp[1]) state.hp=hp;
                 const ea=stat('.nan-ea-val'); if(ea[1]) state.ea=ea;
                 const san=stat('.nan-san-val'); if(san[1]) state.san=san;
                 const gen=stat('.gengar-hp-val'); if(gen[1]) state.gengar=gen;
-
-                // Imagens
+                
                 state.images = [];
-                // Tenta pegar tags IMG diretas (formato exportação) ou DIVs (formato não comum mas possível)
-                // O padrão de exportação é <img>.
+                const baseHeight = 800; 
+
                 doc.querySelectorAll('img.ink-overlay').forEach(img => {
                     const style = img.getAttribute('style') || "";
-                    const getVal = (key) => {
-                        const re = new RegExp(`${key}\\s*:\\s*(-?[\\d.]+)`);
-                        const m = style.match(re);
-                        return m ? parseFloat(m[1]) : null;
+                    const getVal = (key) => { const m = style.match(new RegExp(`${key}\\s*:\\s*(-?[\\d.]+)`)); return m ? parseFloat(m[1]) : null; }
+                    let l = getVal('left'); 
+                    let isBottom = false;
+                    let bottomPct = getVal('bottom');
+                    let topPct = getVal('top');
+                    let importedTop = 50;
+                    if(bottomPct !== null) {
+                        isBottom = true;
+                        importedTop = baseHeight - (baseHeight * (bottomPct/100)) - (getVal('width')||150);
+                    } else if (topPct !== null) {
+                        importedTop = baseHeight * (topPct/100);
+                    } else {
+                         const oldTop = style.match(/top\s*:\s*(-?[\d.]+)px/);
+                         if(oldTop) importedTop = parseFloat(oldTop[1]);
                     }
-                    state.images.push({
-                        url: img.src,
-                        top: getVal('top') ?? 50,
-                        left: getVal('left') ?? 50,
-                        width: getVal('width') || 150,
-                        rotate: getVal('rotate') || 0,
-                        opacity: getVal('opacity') || 1
+                    state.images.push({ 
+                        url: img.src, 
+                        top: importedTop, 
+                        left: l??10, 
+                        width: getVal('width')||150, 
+                        rotate: getVal('rotate')||0, 
+                        opacity: getVal('opacity')||1,
+                        anchorBottom: isBottom
                     });
                 });
-                
                 updateInputs(); render(); closeImport(); showToast("Importado!");
-            } catch(e) { alert('Erro no HTML.'); }
+            } catch(e) { console.error(e); alert('Erro no HTML.'); }
         }
 
         function openImport(){ document.getElementById('import-modal').style.display='flex'; }
         function closeImport(){ document.getElementById('import-modal').style.display='none'; }
-        function clearData() { if(confirm('Limpar tudo?')) { localStorage.removeItem('hazuv6'); location.reload(); } }
+        function clearData() { if(confirm('Limpar tudo?')) { localStorage.removeItem('hazuV16'); location.reload(); } }
         function showToast(m) { const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2000); }
 
         init();
